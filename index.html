@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no, maximum-scale=1.0" />
+    <title>Generador de rutinas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <h1>CONSTRUCTOR DE RUTINAS</h1>
+    <p class="sub">¿QUÉ VAMOS A ENTRENAR HOY?</p>
+    <p class="desc">Selecciona tus músculos, elige tu equipamiento y arma tu lista ideal.</p>
+</header>
+
+<main>
+    <section class="panel-control">
+        <h2>01 / MÚSCULOS</h2>
+        <div id="grid-muscles" class="opciones-grid">
+            <button class="btn-option" data-muscle="chest">PECHO</button>
+            <button class="btn-option" data-muscle="back">ESPALDA</button>
+            <button class="btn-option" data-muscle="shoulders">HOMBROS</button>
+            <button class="btn-option" data-muscle="biceps">BÍCEPS</button>
+            <button class="btn-option" data-muscle="triceps">TRÍCEPS</button>
+            <button class="btn-option" data-muscle="legs">PIERNAS</button>
+            <button class="btn-option" data-muscle="core">ABDOMEN</button>
+            <button class="btn-option" data-muscle="glutes">GLÚTEOS</button>
+            <button class="btn-option" data-muscle="other">OTROS</button>
+        </div>
+    </section>
+
+    <section class="panel-control">
+        <h2>02 / EQUIPAMIENTO</h2>
+        <div id="grid-equipment" class="opciones-grid">
+            <button class="btn-option" data-equipment="body weight">PESO CORPORAL</button>
+            <button class="btn-option" data-equipment="dumbbell">MANCUERNAS</button>
+            <button class="btn-option" data-equipment="barbell">BARRA</button>
+            <button class="btn-option" data-equipment="cable">POLEA</button>
+            <button class="btn-option" data-equipment="machine">MÁQUINA</button>
+        </div>
+    </section>
+
+    <section class="panel-control">
+        <h2>03 / ¿CUÁNTOS EJERCICIOS?</h2>
+        <div id="selector-cantidad" class="numeros-row">
+            <button class="btn-num" data-num="4">04</button>
+            <button class="btn-num active" data-num="6">06</button>
+            <button class="btn-num" data-num="8">08</button>
+            <button class="btn-num" data-num="10">10</button>
+        </div>
+        <p class="nota-volumen"><span id="txt-total">06</span> EJERCICIOS EN TOTAL — NO SERIES, NO REPETICIONES.</p>
+    </section>
+
+    <button id="btn-build" class="btn-accion">CONSTRUIR MI RUTINA →</button>
+</main>
+
+<section id="setlist-container" class="hidden">
+    <div class="header-resultados">
+        <h2>TU RUTINA DE HOY</h2>
+        <button id="btn-rebuild">← CAMBIAR / RECONSTRUIR</button>
+    </div>
+    <div id="grid-cards" class="grid-tarjetas"></div>
+</section>
+
+<div id="modal-detail" class="modal hidden">
+    <div class="modal-contenido">
+        <button id="btn-close-modal" class="btn">×</button>
+        <h2 id="modal-title"></h2>
+        <img id="modal-video" src="" alt="Animación del ejercicio" loading="lazy">
+        <h3>INSTRUCCIONES:</h3>
+        <ol id="modal-steps"></ol>
+    </div>
+</div>
+
+<div id="modal-swap" class="modal hidden">
+    <div class="modal-contenido">
+        <button id="btn-close-swap" class="btn">×</button>
+        <h2>CAMBIAR EJERCICIO</h2>
+        <p class="swap-subtitle">Selecciona una alternativa de la lista:</p>
+        <label>
+            <input type="text" id="input-search-swap" class="search-input" placeholder="Buscar ejercicio..." autocomplete="off">
+        </label>
+        <div class="swap-body">
+            <div id="grid-alternatives" class="grid-alternatives"></div>
+            <div id="swap-preview" class="swap-preview-box">
+                <p class="preview-placeholder">Selecciona un ejercicio para ver la vista previa</p>
+            </div>
+        </div>
+
+        <div class="modal-footer-actions">
+            <button id="btn-confirm-swap" class="btn-accion-secundario" disabled>&#10004; AGREGAR SELECCIONADO</button>
+            <button id="btn-random-swap" class="btn-accion-terciario">&#10536; ESCOGER POR MÍ</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container" class="hidden"></div>
+
+<button id="btn-open-info" class="floating-info-btn" title="Información de la app">&#9432;</button>
+
+<div id="modal-info" class="modal hidden">
+    <div class="modal-contenido">
+        <button id="btn-close-info" class="btn">×</button>
+        <h2>ACERCA DE LA APP</h2>
+        <div class="info-body" style="margin-top: 15px; font-size: 0.9rem; line-height: 1.6; font-weight: 600;">
+            <p style="margin-bottom: 12px;">
+                Esta aplicación tiene un fin meramente informativo y de inspiración para proponer ideas de entrenamientos y ejercicios.
+            </p>
+            <p style="margin-bottom: 12px;">
+                No sustituye la asesoría de un profesional. Lo ideal para cualquier rutina es consultar siempre con un entrenador que adapte las cargas y movimientos a tus objetivos y condición física.
+            </p>
+            <p>
+                Entrena siempre con cuidado y escucha a tu cuerpo; si encuentras un movimiento demasiado complejo o incómodo, recuerda que puedes cambiarlo en cualquier momento. ¡Disfruta tu entrenamiento!
+            </p>
+            <p style="font-size: 0.8rem; opacity: 0.8; margin-top: 1rem">
+                * Las imágenes y videos de los ejercicios pertenecen al repositorio <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">exercises-dataset</a>.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
