@@ -17,6 +17,7 @@ let currentIndexToSwap = null;
 let selectedAlternative = null;
 let currentAlternativesList = [];
 let toastTimeout = null;
+let modalMode = 'swap';
 
 async function initApp() {
   try {
@@ -128,6 +129,13 @@ function resetPreferencesUI() {
   restorePreferencesUI();
 }
 
+function resetAndGoToConfig() {
+  resetPreferencesUI();
+  document.getElementById('setlist-container').classList.add('hidden');
+  document.querySelector('main').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function updateEquipmentAvailability() {
   if (userPreferences.muscles.length === 0) {
     document.querySelectorAll('#grid-equipment .btn-option').forEach(btn => {
@@ -235,11 +243,6 @@ document.getElementById('btn-build').addEventListener('click', () => {
   const includedMuscles = new Set(generatedRoutine.map(ex => ex.mainMuscle));
   const missingMuscles = userPreferences.muscles.filter(m => !includedMuscles.has(m));
 
-  const muscleCounts = {};
-  generatedRoutine.forEach(ex => {
-    muscleCounts[ex.mainMuscle] = (muscleCounts[ex.mainMuscle] || 0) + 1;
-  });
-
   let warningMessage = null;
 
   if (missingMuscles.length > 0) {
@@ -269,43 +272,55 @@ function renderSetlist(exercises) {
   const gridContainer = document.getElementById('grid-cards');
   gridContainer.innerHTML = '';
 
-  if (exercises.length === 0) {
-    gridContainer.innerHTML = `<p style="font-weight: 800; font-size: 0.9rem; grid-column: 1/-1; text-align: center; padding: 2rem;">No se encontraron ejercicios que coincidan con esta combinación.</p>`;
-  } else {
-    exercises.forEach((ex, index) => {
-      const card = document.createElement('div');
-      card.className = 'exercise-card';
-      card.innerHTML = `
-            <div class="card-header-row">
-                <span class="order-num">${String(index + 1).padStart(2, '0')}</span>
-                <button class="btn-top-swap" data-index="${index}" title="Cambiar ejercicio">&#8644;</button>
-            </div>
-            <img src="${ex.image}" alt="${ex.name}" loading="lazy">
-            <h3>${ex.name}</h3>
-            <div class="tags">
-                <span class="tag-muscle">${translateMuscle(ex.mainMuscle)}</span>
-                <span class="tag-equipment">${translateEquipment(ex.equipment)}</span>
-            </div>
-            <button class="btn-details" data-id="${ex.id}">VER GUÍA</button>
-        `;
+  exercises.forEach((ex, index) => {
+    const card = document.createElement('div');
+    card.className = 'exercise-card';
+    card.innerHTML = `
+          <div class="card-header-row">
+              <span class="order-num">${String(index + 1).padStart(2, '0')}</span>
+              <div class="card-header-btns">
+                  <button class="btn-top-swap" data-index="${index}" title="Cambiar ejercicio">&#8644;</button>
+                  <button class="btn-top-delete" data-index="${index}" title="Eliminar ejercicio">&times;</button>
+              </div>
+          </div>
+          <img src="${ex.image}" alt="${ex.name}" loading="lazy">
+          <h3>${ex.name}</h3>
+          <div class="tags">
+              <span class="tag-muscle">${translateMuscle(ex.mainMuscle)}</span>
+              <span class="tag-equipment">${translateEquipment(ex.equipment)}</span>
+          </div>
+          <button class="btn-details" data-id="${ex.id}">VER GUÍA</button>
+      `;
 
-      card.querySelector('.btn-details').addEventListener('click', () => openModal(ex.id));
-      card.querySelector('.btn-top-swap').addEventListener('click', () => openSwapModal(index));
-      gridContainer.appendChild(card);
-    });
-  }
+    card.querySelector('.btn-details').addEventListener('click', () => openModal(ex.id));
+    card.querySelector('.btn-top-swap').addEventListener('click', () => openSwapModal(index));
+    card.querySelector('.btn-top-delete').addEventListener('click', () => deleteExercise(index));
+    gridContainer.appendChild(card);
+  });
 
   document.querySelector('main').classList.add('hidden');
   document.getElementById('setlist-container').classList.remove('hidden');
 }
 
-document.getElementById('btn-rebuild').addEventListener('click', () => {
-  resetPreferencesUI();
+function deleteExercise(index) {
+  currentRoutine.splice(index, 1);
 
-  document.getElementById('setlist-container').classList.add('hidden');
-  document.querySelector('main').classList.remove('hidden');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-});
+  if (currentRoutine.length === 0) {
+    resetAndGoToConfig();
+    return;
+  }
+
+  userPreferences.totalExercises = currentRoutine.length;
+
+  const routineIds = currentRoutine.map(ex => ex.id);
+  localStorage.setItem(ROUTINE_KEY, JSON.stringify(routineIds));
+  savePreferences();
+
+  renderSetlist(currentRoutine);
+  showToast("EJERCICIO ELIMINADO", 2000);
+}
+
+document.getElementById('btn-rebuild').addEventListener('click', resetAndGoToConfig);
 
 function openModal(id) {
   const ex = globalDataset.find(e => e.id === id);
@@ -332,12 +347,88 @@ document.getElementById('btn-close-modal').addEventListener('click', () => {
   document.getElementById('modal-video').src = '';
 });
 
+function openSwapModal(index) {
+  modalMode = 'swap';
+  currentIndexToSwap = index;
+  selectedAlternative = null;
+
+  document.body.classList.add('modal-open');
+  document.getElementById('modal-swap-title').innerText = "CAMBIAR EJERCICIO";
+  document.getElementById('btn-confirm-swap').innerHTML = "&#10004; REEMPLAZAR SELECCIONADO";
+  document.getElementById('btn-confirm-swap').disabled = true;
+  document.getElementById('btn-random-swap').classList.remove('hidden');
+
+  const searchInput = document.getElementById('input-search-swap');
+  if (searchInput) searchInput.value = '';
+
+  const exerciseToReplace = currentRoutine[index];
+  const remainingRoutine = currentRoutine.filter((_, i) => i !== index);
+  const currentAxialCount = remainingRoutine.filter(ex => ex.hasAxialLoad).length;
+  const maxAxialAllowed = userPreferences.totalExercises <= 6 ? 1 : 2;
+  const activePatterns = new Set(remainingRoutine.map(ex => ex.movementPattern));
+
+  currentAlternativesList = globalDataset.filter(ex => {
+    const isSameMuscle = ex.mainMuscle === exerciseToReplace.mainMuscle;
+    const isAllowedEquipment = userPreferences.equipment.includes(ex.equipment);
+    const isNotInCurrentRoutine = !currentRoutine.some(rutinaEx => rutinaEx.id === ex.id);
+
+    if (!isSameMuscle || !isAllowedEquipment || !isNotInCurrentRoutine) return false;
+    return !(ex.hasAxialLoad && currentAxialCount >= maxAxialAllowed);
+  });
+
+  currentAlternativesList.sort((a, b) => {
+    const aUsed = activePatterns.has(a.movementPattern) ? 1 : 0;
+    const bUsed = activePatterns.has(b.movementPattern) ? 1 : 0;
+    return aUsed - bUsed;
+  });
+
+  resetModalPreview();
+  renderAlternativesList(currentAlternativesList);
+  document.getElementById('modal-swap').classList.remove('hidden');
+}
+
+document.getElementById('btn-add-exercise').addEventListener('click', openAddModal);
+
+function openAddModal() {
+  modalMode = 'add';
+  currentIndexToSwap = null;
+  selectedAlternative = null;
+
+  document.body.classList.add('modal-open');
+  document.getElementById('modal-swap-title').innerText = "AÑADIR EJERCICIO EXTRA";
+  document.getElementById('btn-confirm-swap').innerHTML = "&#10004; AÑADIR A LA RUTINA";
+  document.getElementById('btn-confirm-swap').disabled = true;
+  document.getElementById('btn-random-swap').classList.add('hidden');
+
+  const searchInput = document.getElementById('input-search-swap');
+  if (searchInput) searchInput.value = '';
+
+  currentAlternativesList = globalDataset.filter(ex =>
+    !currentRoutine.some(rutinaEx => rutinaEx.id === ex.id)
+  );
+
+  currentAlternativesList.sort((a, b) => {
+    const aSelected = userPreferences.muscles.includes(a.mainMuscle) ? 0 : 1;
+    const bSelected = userPreferences.muscles.includes(b.mainMuscle) ? 0 : 1;
+    return aSelected - bSelected;
+  });
+
+  resetModalPreview();
+  renderAlternativesList(currentAlternativesList);
+  document.getElementById('modal-swap').classList.remove('hidden');
+}
+
+function resetModalPreview() {
+  const previewContainer = document.getElementById('swap-preview');
+  previewContainer.innerHTML = `<p class="preview-placeholder">Selecciona un ejercicio para ver la vista previa</p>`;
+}
+
 function renderAlternativesList(list) {
   const alternativesContainer = document.getElementById('grid-alternatives');
   alternativesContainer.innerHTML = '';
 
   if (list.length === 0) {
-    alternativesContainer.innerHTML = `<p style="font-size: 0.8rem; font-weight: 700; text-align: center; padding: 1rem;">No hay alternativas disponibles con esta búsqueda o filtros.</p>`;
+    alternativesContainer.innerHTML = `<p style="font-size: 0.8rem; font-weight: 700; text-align: center; padding: 1rem;">No hay ejercicios disponibles.</p>`;
     return;
   }
 
@@ -346,7 +437,10 @@ function renderAlternativesList(list) {
     item.className = 'alternative-item';
     item.innerHTML = `
       <img src="${alt.image}" alt="${alt.name}" loading="lazy">
-      <span>${alt.name}</span>
+      <div style="display:flex; flex-direction:column; align-items:flex-start;">
+        <span>${alt.name}</span>
+        <small style="font-size:0.65rem; opacity:0.8;">${translateMuscle(alt.mainMuscle)}</small>
+      </div>
     `;
 
     item.addEventListener('click', () => {
@@ -359,53 +453,12 @@ function renderAlternativesList(list) {
   });
 }
 
-function openSwapModal(index) {
-  currentIndexToSwap = index;
-  selectedAlternative = null;
-
-  document.body.classList.add('modal-open');
-  document.getElementById('btn-confirm-swap').disabled = true;
-
-  const searchInput = document.getElementById('input-search-swap');
-  if (searchInput) searchInput.value = '';
-
-  const exerciseToReplace = currentRoutine[index];
-
-  const remainingRoutine = currentRoutine.filter((_, i) => i !== index);
-  const currentAxialCount = remainingRoutine.filter(ex => ex.hasAxialLoad).length;
-  const maxAxialAllowed = userPreferences.totalExercises <= 6 ? 1 : 2;
-
-  const activePatterns = new Set(remainingRoutine.map(ex => ex.movementPattern));
-
-  currentAlternativesList = globalDataset.filter(ex => {
-    const isSameMuscle = ex.mainMuscle === exerciseToReplace.mainMuscle;
-    const isAllowedEquipment = userPreferences.equipment.includes(ex.equipment);
-    const isNotInCurrentRoutine = !currentRoutine.some(rutinaEx => rutinaEx.id === ex.id);
-
-    if (!isSameMuscle || !isAllowedEquipment || !isNotInCurrentRoutine) return false;
-
-    return !(ex.hasAxialLoad && currentAxialCount >= maxAxialAllowed);
-  });
-
-  currentAlternativesList.sort((a, b) => {
-    const aUsed = activePatterns.has(a.movementPattern) ? 1 : 0;
-    const bUsed = activePatterns.has(b.movementPattern) ? 1 : 0;
-    return aUsed - bUsed;
-  });
-
-  const previewContainer = document.getElementById('swap-preview');
-  previewContainer.innerHTML = `<p class="preview-placeholder">Selecciona un ejercicio para ver la vista previa</p>`;
-
-  renderAlternativesList(currentAlternativesList);
-
-  document.getElementById('modal-swap').classList.remove('hidden');
-}
-
 document.getElementById('input-search-swap').addEventListener('input', (e) => {
-  const searchTerm = e.target.value.toLowerCase();
+  const query = e.target.value.toLowerCase().trim();
 
   const filteredList = currentAlternativesList.filter(alt =>
-    alt.name.toLowerCase().includes(searchTerm)
+    alt.name.toLowerCase().includes(query) ||
+    translateMuscle(alt.mainMuscle).toLowerCase().includes(query)
   );
 
   renderAlternativesList(filteredList);
@@ -417,14 +470,29 @@ function selectAlternativeForPreview(alt) {
   previewContainer.innerHTML = `
     <img src="${alt.video}" alt="${alt.name}" loading="lazy">
     <h4>${alt.name.toUpperCase()}</h4>
+    <span class="tag-muscle" style="margin-top:0.4rem; font-size:0.65rem;">${translateMuscle(alt.mainMuscle)}</span>
   `;
   document.getElementById('btn-confirm-swap').disabled = false;
 }
 
 document.getElementById('btn-confirm-swap').addEventListener('click', () => {
-  if (selectedAlternative) {
-    executeSwap(selectedAlternative);
+  if (!selectedAlternative) return;
+
+  if (modalMode === 'swap' && currentIndexToSwap !== null) {
+    currentRoutine[currentIndexToSwap] = selectedAlternative;
+    showToast(`EJERCICIO CAMBIADO POR: ${selectedAlternative.name.toUpperCase()}`, 2500);
+  } else if (modalMode === 'add') {
+    currentRoutine.push(selectedAlternative);
+    userPreferences.totalExercises = currentRoutine.length;
+    showToast(`EJERCICIO AÑADIDO: ${selectedAlternative.name.toUpperCase()}`, 2500);
   }
+
+  const routineIds = currentRoutine.map(ex => ex.id);
+  localStorage.setItem(ROUTINE_KEY, JSON.stringify(routineIds));
+  savePreferences();
+
+  renderSetlist(currentRoutine);
+  closeSwapModal();
 });
 
 document.getElementById('btn-random-swap').addEventListener('click', () => {

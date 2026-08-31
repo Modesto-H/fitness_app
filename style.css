@@ -624,3 +624,48 @@ header h1 {
     transform: translate(2px, 2px);
     box-shadow: 2px 2px 0 #000;
 }
+.card-header-btns {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.btn-top-delete {
+    background: var(--primary);
+    color: #fff;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+    line-height: 1;
+}
+
+.btn-top-delete:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--border-color);
+}
+
+.btn-top-delete:active {
+    transform: translate(1px, 1px);
+    box-shadow: 0 0 0 var(--border-color);
+}
+
+.footer-setlist {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+.footer-setlist #btn-add-exercise {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.9rem;
+    font-size: 0.95rem;
+}
