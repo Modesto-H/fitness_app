@@ -567,9 +567,10 @@ header h1 {
 #toast-container {
     position: fixed;
     top: 2rem;
-    right: 2rem;
-    width: fit-content;
-    max-width: calc(100vw - 4rem);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 2rem);
     background: var(--primary);
     color: var(--text-main);
     border: var(--border-width) solid var(--border-color);
@@ -579,12 +580,17 @@ header h1 {
     font-size: 0.85rem;
     box-shadow: 4px 4px 0 var(--border-color);
     z-index: 1000;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    text-align: center;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+    opacity: 1;
+    visibility: visible;
 }
 
 #toast-container.hidden {
+    display: block !important;
     opacity: 0;
-    transform: translate(50%, 20px);
+    visibility: hidden;
+    transform: translate(-50%, -10px);
     pointer-events: none;
 }
 
