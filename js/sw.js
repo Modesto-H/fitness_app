@@ -1,14 +1,14 @@
 const CACHE_NAME = 'rutinas-v1';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './style.css',
-  './js/main.js',
-  './js/routineEngine.js',
-  './exercises.json',
-  './site.webmanifest',
-  './favicon.ico',
-  './android-chrome-192x192.png'
+  '',
+  'index.html',
+  'style.css',
+  'js/main.js',
+  'js/routineEngine.js',
+  'exercises.json',
+  'site.webmanifest',
+  'favicon.ico',
+  'android-chrome-192x192.png'
 ];
 
 self.addEventListener('install', (e) => {
