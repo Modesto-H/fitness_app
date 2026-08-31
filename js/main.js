@@ -1,11 +1,13 @@
 import { generateSmartRoutine } from './routineEngine.js';
 
-const STORAGE_KEY = 'currentRoutine';
+const ROUTINE_KEY = 'currentRoutine';
+const PREFS_KEY = 'userPreferences';
+const ALL_EQUIPMENT = ['dumbbell', 'barbell', 'cable'];
 
 let globalDataset = [];
 let userPreferences = {
   muscles: [],
-  equipment: [],
+  equipment: [...ALL_EQUIPMENT],
   totalExercises: 6
 };
 
@@ -14,6 +16,7 @@ let currentRoutine = [];
 let currentIndexToSwap = null;
 let selectedAlternative = null;
 let currentAlternativesList = [];
+let toastTimeout = null;
 
 async function initApp() {
   try {
@@ -22,7 +25,16 @@ async function initApp() {
 
     buildEquipmentMap();
 
-    const savedRoutineIds = localStorage.getItem(STORAGE_KEY);
+    const savedPrefs = localStorage.getItem(PREFS_KEY);
+    if (savedPrefs) {
+      try {
+        userPreferences = JSON.parse(savedPrefs);
+      } catch (e) {
+        console.warn("Error leyendo preferencias guardadas", e);
+      }
+    }
+
+    const savedRoutineIds = localStorage.getItem(ROUTINE_KEY);
 
     if (savedRoutineIds) {
       try {
@@ -38,38 +50,24 @@ async function initApp() {
           throw new Error("Algunos IDs ya no existen en el dataset");
         }
 
-        userPreferences = {
-          muscles: [...new Set(currentRoutine.map(ex => ex.mainMuscle))],
-          equipment: [...new Set(currentRoutine.map(ex => ex.equipment))],
-          totalExercises: currentRoutine.length
-        };
-
-        userPreferences.muscles.forEach(m => {
-          const btn = document.querySelector(`#grid-muscles [data-muscle="${m}"]`);
-          if (btn) btn.classList.add('active');
-        });
-
-        updateEquipmentAvailability();
-
-        userPreferences.equipment.forEach(e => {
-          const btn = document.querySelector(`#grid-equipment [data-equipment="${e}"]`);
-          if (btn) btn.classList.add('active');
-        });
-
-        const numBtn = document.querySelector(`.btn-num[data-num="${userPreferences.totalExercises}"]`);
-        if (numBtn) {
-          document.querySelector('.btn-num.active')?.classList.remove('active');
-          numBtn.classList.add('active');
-          document.getElementById('txt-total').innerText = String(userPreferences.totalExercises).padStart(2, '0');
+        if (!savedPrefs) {
+          userPreferences = {
+            muscles: [...new Set(currentRoutine.map(ex => ex.mainMuscle))],
+            equipment: [...new Set(currentRoutine.map(ex => ex.equipment))],
+            totalExercises: currentRoutine.length
+          };
         }
 
-        renderSetlist(currentRoutine, false);
+        renderSetlist(currentRoutine);
 
       } catch (error) {
         console.warn("IDs almacenados corruptos o desactualizados, reiniciando...", error);
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(ROUTINE_KEY);
       }
     }
+
+    restorePreferencesUI();
+
   } catch (error) {
     console.error("Error loading dataset:", error);
   }
@@ -85,6 +83,49 @@ function buildEquipmentMap() {
     }
     muscleEquipmentMap[muscle].add(eq);
   });
+}
+
+function savePreferences() {
+  localStorage.setItem(PREFS_KEY, JSON.stringify(userPreferences));
+}
+
+function restorePreferencesUI() {
+  document.querySelectorAll('#grid-muscles .btn-option, #grid-equipment .btn-option').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  userPreferences.muscles.forEach(m => {
+    const btn = document.querySelector(`#grid-muscles [data-muscle="${m}"]`);
+    if (btn) btn.classList.add('active');
+  });
+
+  updateEquipmentAvailability();
+
+  userPreferences.equipment.forEach(e => {
+    const btn = document.querySelector(`#grid-equipment [data-equipment="${e}"]`);
+    if (btn) btn.classList.add('active');
+  });
+
+  document.querySelectorAll('.btn-num').forEach(btn => btn.classList.remove('active'));
+  const numBtn = document.querySelector(`.btn-num[data-num="${userPreferences.totalExercises}"]`);
+  if (numBtn) {
+    numBtn.classList.add('active');
+    document.getElementById('txt-total').innerText = String(userPreferences.totalExercises).padStart(2, '0');
+  }
+}
+
+function resetPreferencesUI() {
+  localStorage.removeItem(ROUTINE_KEY);
+  localStorage.removeItem(PREFS_KEY);
+
+  userPreferences = {
+    muscles: [],
+    equipment: [...ALL_EQUIPMENT],
+    totalExercises: 6
+  };
+  currentRoutine = [];
+
+  restorePreferencesUI();
 }
 
 function updateEquipmentAvailability() {
@@ -118,14 +159,15 @@ function updateEquipmentAvailability() {
   });
 }
 
-function showToast(message) {
+function showToast(message, duration = 3500) {
   const toast = document.getElementById('toast-container');
   toast.innerText = message;
   toast.classList.remove('hidden');
 
-  setTimeout(() => {
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
     toast.classList.add('hidden');
-  }, 3000);
+  }, duration);
 }
 
 document.querySelectorAll('#grid-muscles .btn-option').forEach(btn => {
@@ -139,6 +181,7 @@ document.querySelectorAll('#grid-muscles .btn-option').forEach(btn => {
     }
 
     updateEquipmentAvailability();
+    savePreferences();
   });
 });
 
@@ -153,15 +196,19 @@ document.querySelectorAll('#grid-equipment .btn-option').forEach(btn => {
     } else {
       userPreferences.equipment.push(eq);
     }
+
+    savePreferences();
   });
 });
 
 document.querySelectorAll('.btn-num').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelector('.btn-num.active').classList.remove('active');
+    document.querySelector('.btn-num.active')?.classList.remove('active');
     btn.classList.add('active');
     userPreferences.totalExercises = parseInt(btn.dataset.num);
     document.getElementById('txt-total').innerText = btn.dataset.num.padStart(2, '0');
+
+    savePreferences();
   });
 });
 
@@ -179,10 +226,42 @@ document.getElementById('btn-build').addEventListener('click', () => {
   }
 
   const routineIds = generatedRoutine.map(ex => ex.id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(routineIds));
+  localStorage.setItem(ROUTINE_KEY, JSON.stringify(routineIds));
+  savePreferences();
 
   renderSetlist(generatedRoutine);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const includedMuscles = new Set(generatedRoutine.map(ex => ex.mainMuscle));
+  const missingMuscles = userPreferences.muscles.filter(m => !includedMuscles.has(m));
+
+  const muscleCounts = {};
+  generatedRoutine.forEach(ex => {
+    muscleCounts[ex.mainMuscle] = (muscleCounts[ex.mainMuscle] || 0) + 1;
+  });
+
+  let warningMessage = null;
+
+  if (missingMuscles.length > 0) {
+    const translatedMissing = missingMuscles.map(translateMuscle).join(', ');
+    warningMessage = `⚠️ AVISO: NO HAY EJERCICIOS DE (${translatedMissing}) CON EL EQUIPO SELECCIONADO.`;
+  }
+
+  const heavyGripCount = generatedRoutine.filter(ex =>
+    (ex.mainMuscle === 'back' || ex.movementPattern === 'hip_dominant') &&
+    (ex.equipment === 'barbell' || ex.equipment === 'dumbbell')
+  ).length;
+
+  if (warningMessage) {
+    showToast(warningMessage, 4000);
+    if (heavyGripCount >= 3) {
+      setTimeout(() => {
+        showToast("💡 CONSEJO: ALTA FATIGA DE AGARRE. USA STRAPS SI FALLAN TUS ANTEBRAZOS.", 4500);
+      }, 4200);
+    }
+  } else if (heavyGripCount >= 3) {
+    showToast("💡 CONSEJO: ALTA FATIGA DE AGARRE. USA STRAPS SI FALLAN TUS ANTEBRAZOS.", 4500);
+  }
 });
 
 function renderSetlist(exercises) {
@@ -221,7 +300,7 @@ function renderSetlist(exercises) {
 }
 
 document.getElementById('btn-rebuild').addEventListener('click', () => {
-  localStorage.removeItem(STORAGE_KEY);
+  resetPreferencesUI();
 
   document.getElementById('setlist-container').classList.add('hidden');
   document.querySelector('main').classList.remove('hidden');
@@ -292,11 +371,27 @@ function openSwapModal(index) {
 
   const exerciseToReplace = currentRoutine[index];
 
-  currentAlternativesList = globalDataset.filter(ex =>
-    ex.mainMuscle === exerciseToReplace.mainMuscle &&
-    userPreferences.equipment.includes(ex.equipment) &&
-    !currentRoutine.some(rutinaEx => rutinaEx.id === ex.id)
-  );
+  const remainingRoutine = currentRoutine.filter((_, i) => i !== index);
+  const currentAxialCount = remainingRoutine.filter(ex => ex.hasAxialLoad).length;
+  const maxAxialAllowed = userPreferences.totalExercises <= 6 ? 1 : 2;
+
+  const activePatterns = new Set(remainingRoutine.map(ex => ex.movementPattern));
+
+  currentAlternativesList = globalDataset.filter(ex => {
+    const isSameMuscle = ex.mainMuscle === exerciseToReplace.mainMuscle;
+    const isAllowedEquipment = userPreferences.equipment.includes(ex.equipment);
+    const isNotInCurrentRoutine = !currentRoutine.some(rutinaEx => rutinaEx.id === ex.id);
+
+    if (!isSameMuscle || !isAllowedEquipment || !isNotInCurrentRoutine) return false;
+
+    return !(ex.hasAxialLoad && currentAxialCount >= maxAxialAllowed);
+  });
+
+  currentAlternativesList.sort((a, b) => {
+    const aUsed = activePatterns.has(a.movementPattern) ? 1 : 0;
+    const bUsed = activePatterns.has(b.movementPattern) ? 1 : 0;
+    return aUsed - bUsed;
+  });
 
   const previewContainer = document.getElementById('swap-preview');
   previewContainer.innerHTML = `<p class="preview-placeholder">Selecciona un ejercicio para ver la vista previa</p>`;
@@ -334,8 +429,16 @@ document.getElementById('btn-confirm-swap').addEventListener('click', () => {
 
 document.getElementById('btn-random-swap').addEventListener('click', () => {
   if (currentAlternativesList.length > 0) {
-    const randomIndex = Math.floor(Math.random() * currentAlternativesList.length);
-    executeSwap(currentAlternativesList[randomIndex]);
+    const activePatterns = new Set(
+      currentRoutine.filter((_, i) => i !== currentIndexToSwap).map(ex => ex.movementPattern)
+    );
+
+    const optimalAlternatives = currentAlternativesList.filter(alt => !activePatterns.has(alt.movementPattern));
+
+    const poolToPick = optimalAlternatives.length > 0 ? optimalAlternatives : currentAlternativesList;
+    const randomIndex = Math.floor(Math.random() * poolToPick.length);
+
+    executeSwap(poolToPick[randomIndex]);
   } else {
     showToast("NO HAY ALTERNATIVAS DISPONIBLES");
   }
@@ -346,7 +449,7 @@ function executeSwap(newExercise) {
     currentRoutine[currentIndexToSwap] = newExercise;
 
     const routineIds = currentRoutine.map(ex => ex.id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(routineIds));
+    localStorage.setItem(ROUTINE_KEY, JSON.stringify(routineIds));
 
     renderSetlist(currentRoutine);
     closeSwapModal();
@@ -402,7 +505,6 @@ function translateEquipment(equipment) {
     'dumbbell': 'MANCUERNAS',
     'barbell': 'BARRA',
     'cable': 'POLEA',
-    'machine': 'MÁQUINA'
   };
   return translations[equipment.toLowerCase()] || equipment.toUpperCase();
 }
