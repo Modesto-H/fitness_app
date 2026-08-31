@@ -20,13 +20,13 @@ let toastTimeout = null;
 let modalMode = 'swap';
 
 async function initApp() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./js/sw.js')
-        .then((reg) => console.log('Service Worker registrado correctamente:', reg.scope))
-        .catch((err) => console.error('Error al registrar Service Worker:', err));
-    });
-  }
+  // if ('serviceWorker' in navigator) {
+  //   window.addEventListener('load', () => {
+  //     navigator.serviceWorker.register('./js/sw.js')
+  //       .then((reg) => console.log('Service Worker registrado correctamente:', reg.scope))
+  //       .catch((err) => console.error('Error al registrar Service Worker:', err));
+  //   });
+  // }
 
   try {
     const response = await fetch('exercises.json');
